@@ -1,0 +1,93 @@
+local dotenv = require('dotenv')
+dotenv.config()
+
+local discordia = require('discordia')
+local client = discordia.Client()
+local rcon = require('rcon')  -- Ensure this is a valid RCON library or adapt to your specific library
+
+local RCON_HOST = os.getenv('RCON_HOST') or 'localhost'
+local RCON_PORT = tonumber(os.getenv('RCON_PORT')) or 27015
+local RCON_PASSWORD = os.getenv('RCON_PASSWORD')
+local DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
+local CHANNEL_ID = os.getenv('CHANNEL_ID')
+local discordia = require('discordia')
+local client = discordia.Client()
+local rcon = require('rcon')  -- Ensure this is a valid RCON library or adapt to your specific library
+
+-- Load environment variables (e.g., via a .env file or environment settings)
+local RCON_HOST = os.getenv('RCON_HOST') or 'localhost'
+local RCON_PORT = tonumber(os.getenv('RCON_PORT')) or 27015
+local RCON_PASSWORD = os.getenv('RCON_PASSWORD') or 'your_rcon_password'
+local DISCORD_TOKEN = os.getenv('DISCORD_TOKEN') or 'your_discord_bot_token'
+local CHANNEL_ID = os.getenv('CHANNEL_ID')  -- Numeric ID of the Discord channel
+
+-- Function to fetch the kill feed from the game server using RCON
+local function fetchKillFeed()
+    local success, client = pcall(rcon.connect, RCON_HOST, RCON_PORT, RCON_PASSWORD)
+    if not success then
+        print("Failed to connect to the RCON server.")
+        return {}
+    end
+
+    local success, response = pcall(client.run, client, 'status')
+    client:disconnect()
+
+    if not success then
+        print("Failed to fetch the status from the RCON server.")
+        return {}
+    end
+
+    local killFeed = parseKillFeed(response)
+    return killFeed
+end
+
+-- Function to parse the kill feed from the RCON response
+local function parseKillFeed(response)
+    local killFeed = {}
+
+    for line in response:gmatch("[^\r\n]+") do
+        if line:match("Kill") then  -- Adjust based on your log format
+            local attacker, victim, gunID = line:match("(%S+) killed (%S+) using (%S+)")
+            if attacker and victim and gunID then
+                table.insert(killFeed, string.format("%s killed %s using %s", attacker, victim, gunID))
+            end
+        end
+    end
+
+    return killFeed
+end
+
+
+local function sendToDiscord(messages)
+    local channel = client:getChannel(CHANNEL_ID)
+    if not channel then
+        print("Channel not found.")
+        return
+    end
+
+    for _, message in ipairs(messages) do
+        pcall(channel.send, channel, message)
+    end
+end
+
+
+local function periodicUpdate()
+    local clock = discordia.Clock()
+    clock:start()
+
+    clock:on("minutely", function()
+        local killFeed = fetchKillFeed()
+        if #killFeed > 0 then
+            sendToDiscord(killFeed)
+        end
+    end)
+end
+
+
+client:on('ready', function()
+    print('Bot is ready!')
+    periodicUpdate()
+end)
+
+
+client:run('Bot ' .. DISCORD_TOKEN)
