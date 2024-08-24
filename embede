@@ -1,0 +1,29 @@
+import discord
+from discord import app_commands
+from discord.ext import commands
+
+# Discord bot token
+DISCORD_TOKEN = 'your_discord_bot_token'
+
+# Create a bot instance with necessary intents
+intents = discord.Intents.default()
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+# Create a tree for slash commands
+tree = app_commands.CommandTree(bot)
+
+# Event: Bot is ready
+@bot.event
+async def on_ready():
+    print(f'Bot is ready. Logged in as {bot.user}')
+    # Sync the command tree with the Discord server
+    await tree.sync()
+
+# Register a slash command to send an embedded message
+@tree.command(name="embedmessage", description="Send an embedded message.")
+async def embed_message(interaction: discord.Interaction, title: str, description: str):
+    embed = discord.Embed(title=title, description=description, color=discord.Color.blue())
+    await interaction.response.send_message(embed=embed)
+
+# Run the bot
+bot.run(DISCORD_TOKEN)
