@@ -34,7 +34,7 @@ async def on_message(message):
         try:
             issue = repo.create_issue(title=name, body=f"This issue was created by {message.author} via Discord.")
             await message.channel.send(f"Issue '{name}' created on GitHub!")
-        except Exception as e:
+        except Exception as e: 
             await message.channel.send(f"Failed to create GitHub issue: {e}")
     
 
