@@ -1,29 +1,73 @@
-import discord
-from discord import app_commands 
-from discord.ext import commands
+local discordia = require('discordia')
+local client = discordia.Client()
 
-# Discord bot token
-DISCORD_TOKEN = 'your_discord_bot_token'
+local json = require('json')  -- Used for handling slash commands
+local token = 'bot token'
 
-# Create a bot instance with necessary intents
-intents = discord.Intents.default()
-bot = commands.Bot(command_prefix="!", intents=intents)
+client:on('ready', function()
+    print('Logged in as '.. client.user.username)
+end)
 
-# Create a tree for slash commands
-tree = app_commands.CommandTree(bot)
+client:on('slashCommand', function(interaction)
+    local member = interaction.member
+    local guild = interaction.guild
 
-# Event: Bot is ready
-@bot.event
-async def on_ready():
-    print(f'Bot is ready. Logged in as {bot.user}')
-    # Sync the command tree with the Discord server
-    await tree.sync()
+    if interaction.data.name == "embed_message" then
+        -- Check if the user has the "Manage Server" permission
+        if not member:hasPermission(guild.me, "manageGuild") then
+            interaction:reply("You do not have permission to use this command.", true) 
+            return
+        end
 
-# Register a slash command to send an embedded message
-@tree.command(name="embedmessage", description="Send an embedded message.")
-async def embed_message(interaction: discord.Interaction, title: str, description: str):
-    embed = discord.Embed(title=title, description=description, color=discord.Color.blue())
-    await interaction.response.send_message(embed=embed)
+        local title, description, color
+        for _, option in ipairs(interaction.data.options) do
+            if option.name == "title" then
+                title = option.value
+            elseif option.name == "description" then
+                description = option.value
+            elseif option.name == "color" then
+                local hex = option.value:gsub("#", "")
+                color = tonumber(hex, 16)  -- Convert hex string to a decimal number
+            end
+        end
 
-# Run the bot
-bot.run(DISCORD_TOKEN)
+        local embed = {
+            title = title,
+            description = description,
+            color = color or 0xe0b219  -- Default color if none is provided
+        }
+
+        interaction:reply({
+            embeds = { embed }
+        })
+    end
+end)
+
+client:on('ready', function()
+    client:createGuildApplicationCommand(guild_id, {
+        name = "embed_message",
+        description = "Send an embedded message",
+        options = {
+            {
+                name = "title",
+                description = "The title of the embed",
+                type = 3,  
+                required = true
+            },
+            {
+                name = "description",
+                description = "The description of the embed",
+                type = 3, 
+                required = true
+            },
+            {
+                name = "color",
+                description = "The hex color code of the embed (e.g., #ff5733)",
+                type = 3,  -- String type
+                required = false  -- Optional
+            }
+        }
+    })
+end)
+
+client:run('Bot ' .. token)
